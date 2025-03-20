@@ -164,6 +164,31 @@ class TestMetadataExtractor(unittest.TestCase):
         # Check error field
         self.assertIn("error", metadata)
         self.assertIn("File not found", metadata["error"])
+    
+    def test_date_extraction_from_filename(self):
+        """Test extraction of date from filename when EXIF data is missing."""
+        # Create a temporary image with a date-formatted filename
+        date_filename = "2023-05-15 14.30.25.jpg"
+        date_filepath = os.path.join(self.temp_dir.name, date_filename)
+        
+        # Create a simple test image
+        img = Image.new('RGB', (100, 100), color='blue')
+        img.save(date_filepath)
+        
+        # Extract metadata
+        metadata = extract_metadata(date_filepath)
+        
+        # Check that exif data exists (even if created)
+        self.assertIn("exif", metadata)
+        
+        # Check that DateTimeOriginal was added from filename
+        self.assertIn("DateTimeOriginal", metadata["exif"])
+        
+        # Check that the date value is correct
+        self.assertEqual(metadata["exif"]["DateTimeOriginal"], "2023-05-15T14:30:25")
+        
+        # Check that date_source indicates it came from filename
+        self.assertEqual(metadata["date_source"], "filename")
 
 
 if __name__ == '__main__':
