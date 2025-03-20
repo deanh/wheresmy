@@ -15,6 +15,7 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from wheresmy.core.database import ImageDatabase
+from wheresmy.core.text_embeddings import TextEmbeddingGenerator
 from wheresmy.search import search as search_utils
 from wheresmy.search import stats as stats_utils
 
@@ -41,6 +42,10 @@ def print_command_help():
     print("  wheresmy_search search --min-width 3000 --min-height 2000")
     print("  # Search by image content (using VLM descriptions)")
     print("  wheresmy_search search --content \"beach sunset\"")
+    print("  # Semantic search (using embeddings)")
+    print("  wheresmy_search search --semantic \"sunset over mountains\"")
+    print("  # Hybrid search (combining text and semantic search)")
+    print("  wheresmy_search search --hybrid \"beach with palm trees\" --weight 0.6")
     print("  # Combined search")
     print("  wheresmy_search search --camera-make Apple --year 2018 --content \"cat\"")
     print("  # Show database statistics")
@@ -66,6 +71,14 @@ def main():
     content_group = search_parser.add_argument_group("Content Search")
     content_group.add_argument("--query", "-q", help="Text search query (searches descriptions and metadata)")
     content_group.add_argument("--content", help="Search by image content description")
+    
+    # Semantic search
+    semantic_group = search_parser.add_argument_group("Semantic Search")
+    semantic_group.add_argument("--semantic", help="Semantic search query (finds semantically similar content)")
+    semantic_group.add_argument("--hybrid", help="Hybrid search combining text and semantic search")
+    semantic_group.add_argument("--weight", type=float, default=0.5, 
+                            help="Weight for text search in hybrid mode (0.0 to 1.0, default: 0.5)")
+    semantic_group.add_argument("--model", help="Embedding model to use (default: all-MiniLM-L6-v2)")
     
     # Context search
     context_group = search_parser.add_argument_group("Context Search")
@@ -165,19 +178,44 @@ def main():
                 else:
                     text_query = args.content
             
-            # Execute search
-            results = search_utils.search_images(
-                db,
-                text_query=text_query,
-                camera_make=args.camera_make,
-                camera_model=args.camera_model,
-                date_start=date_start,
-                date_end=date_end,
-                min_width=args.min_width,
-                min_height=args.min_height,
-                limit=args.limit,
-                offset=args.offset
-            )
+            # Determine which search method to use
+            if args.semantic:
+                logger.info(f"Performing semantic search with query: {args.semantic}")
+                results = search_utils.semantic_search(
+                    db,
+                    query=args.semantic,
+                    embedding_model=args.model,
+                    limit=args.limit
+                )
+            elif args.hybrid:
+                logger.info(f"Performing hybrid search with query: {args.hybrid}")
+                
+                # Validate weight is between 0 and 1
+                weight = max(0.0, min(1.0, args.weight))
+                if weight != args.weight:
+                    logger.warning(f"Weight value {args.weight} out of range, using {weight}")
+                
+                results = search_utils.hybrid_search(
+                    db,
+                    query=args.hybrid,
+                    embedding_model=args.model,
+                    text_weight=weight,
+                    limit=args.limit
+                )
+            else:
+                # Execute regular search
+                results = search_utils.search_images(
+                    db,
+                    text_query=text_query,
+                    camera_make=args.camera_make,
+                    camera_model=args.camera_model,
+                    date_start=date_start,
+                    date_end=date_end,
+                    min_width=args.min_width,
+                    min_height=args.min_height,
+                    limit=args.limit,
+                    offset=args.offset
+                )
             
             if args.json:
                 print(json.dumps(results, indent=2, default=str))
@@ -214,6 +252,14 @@ def main():
                         if len(desc) > 80 and not args.full_desc:
                             desc = desc[:80] + "..."
                         print(f"Content: {desc}")
+                    
+                    # Show similarity score for semantic search results
+                    if result.get("similarity") is not None:
+                        print(f"Similarity: {result['similarity']:.4f}")
+                        
+                    # Show combined score for hybrid search results
+                    if result.get("combined_score") is not None:
+                        print(f"Combined Score: {result['combined_score']:.4f}")
                         
             return 0
         except Exception as e:

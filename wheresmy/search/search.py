@@ -4,13 +4,18 @@ Search Utilities Module
 
 This module provides utility functions for searching images based on
 metadata stored in the database. It abstracts the search functionality
-from the web interface for reuse in other contexts.
+from the web interface for reuse in other contexts, including:
+- Text-based search using full-text database capabilities
+- Semantic search using vector embeddings
+- Hybrid search combining text and semantic approaches
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+import numpy as np
+from typing import Dict, List, Optional, Any, Union
 
 from wheresmy.core.database import ImageDatabase
+from wheresmy.core.text_embeddings import TextEmbeddingGenerator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -86,3 +91,101 @@ def get_image_by_id(db: ImageDatabase, image_id: int) -> Optional[Dict[str, Any]
     except Exception as e:
         logger.error(f"Error in get_image_by_id: {str(e)}")
         raise
+
+def semantic_search(
+    db: ImageDatabase,
+    query: str,
+    embedding_model: Optional[str] = None,
+    limit: int = 20
+) -> List[Dict[str, Any]]:
+    """
+    Search for images using semantic similarity to the query text.
+    
+    Args:
+        db: ImageDatabase instance
+        query: Text query to search for semantically similar images
+        embedding_model: Optional name of embedding model to use
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of matching image metadata with similarity scores
+    """
+    try:
+        # Initialize embedding generator
+        embedding_generator = TextEmbeddingGenerator(model_name=embedding_model)
+        
+        # Generate embedding for the query
+        logger.info(f"Generating embedding for query: '{query}'")
+        query_embedding_result = embedding_generator.generate_query_embedding(query)
+        
+        if "error" in query_embedding_result:
+            logger.error(f"Error generating query embedding: {query_embedding_result['error']}")
+            return []
+        
+        # Get the actual embedding vector
+        query_embedding = query_embedding_result["embedding"]
+        
+        # Perform semantic search
+        logger.info(f"Performing semantic search with query embedding size: {len(query_embedding)}")
+        results = db.semantic_search(query_embedding, limit=limit)
+        
+        return results
+    except Exception as e:
+        logger.error(f"Error in semantic_search: {str(e)}")
+        return []
+
+def hybrid_search(
+    db: ImageDatabase,
+    query: str,
+    embedding_model: Optional[str] = None,
+    text_weight: float = 0.5,
+    limit: int = 20
+) -> List[Dict[str, Any]]:
+    """
+    Search for images using both text search and semantic similarity.
+    
+    Args:
+        db: ImageDatabase instance
+        query: Text query for both text search and semantic embedding
+        embedding_model: Optional name of embedding model to use
+        text_weight: Weight for text search results (0.0 to 1.0)
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of matching image metadata with combined scores
+    """
+    try:
+        # Initialize embedding generator
+        embedding_generator = TextEmbeddingGenerator(model_name=embedding_model)
+        
+        # Generate embedding for the query
+        logger.info(f"Generating embedding for hybrid query: '{query}'")
+        query_embedding_result = embedding_generator.generate_query_embedding(query)
+        
+        if "error" in query_embedding_result:
+            logger.error(f"Error generating query embedding: {query_embedding_result['error']}")
+            # Fallback to regular text search
+            logger.info("Falling back to regular text search")
+            return search_images(db, text_query=query, limit=limit)
+        
+        # Get the actual embedding vector
+        query_embedding = query_embedding_result["embedding"]
+        
+        # Perform hybrid search
+        logger.info(f"Performing hybrid search with text weight: {text_weight}")
+        results = db.hybrid_search(
+            query, 
+            query_embedding, 
+            limit=limit,
+            text_weight=text_weight
+        )
+        
+        return results
+    except Exception as e:
+        logger.error(f"Error in hybrid_search: {str(e)}")
+        # Fallback to regular text search
+        logger.info("Falling back to regular text search due to error")
+        try:
+            return search_images(db, text_query=query, limit=limit)
+        except Exception:
+            return []
