@@ -222,8 +222,18 @@ def extract_heif_metadata(image_path):
     except Exception as e:
         return {"error": f"Error extracting HEIF metadata: {str(e)}"}
 
-def extract_metadata(image_path):
-    """Extract metadata from an image file."""
+def extract_metadata(image_path, vlm_describer=None, vlm_prompt=None):
+    """
+    Extract metadata from an image file.
+    
+    Args:
+        image_path: Path to the image file
+        vlm_describer: Optional VLM describer object for generating image descriptions
+        vlm_prompt: Optional custom prompt for the VLM
+        
+    Returns:
+        Dictionary containing the extracted metadata
+    """
     if not os.path.exists(image_path):
         return {"error": f"File not found: {image_path}"}
     
@@ -232,66 +242,89 @@ def extract_metadata(image_path):
     try:
         # HEIC/HEIF files need special handling
         if file_ext in ['.heic', '.heif']:
-            return extract_heif_metadata(image_path)
-        
-        # For other image formats, use PIL/Pillow
-        img = Image.open(image_path)
-        
-        metadata = {
-            "filename": os.path.basename(image_path),
-            "format": img.format,
-            "mode": img.mode,
-            "size": img.size,
-            "width": img.width,
-            "height": img.height,
-        }
-        
-        # Add image-specific properties
-        if hasattr(img, 'info'):
-            for key, value in img.info.items():
-                if isinstance(value, (str, int, float, bool, list, dict)):
-                    metadata[key] = value
-                elif value is None:
-                    metadata[key] = None
-                else:
-                    metadata[key] = f"Data of type {type(value).__name__}"
-        
-        # Extract EXIF data for formats that support it
-        if file_ext in ['.jpg', '.jpeg', '.tif', '.tiff']:
-            try:
-                exif_data = extract_exif_with_piexif(image_path)
-                if exif_data:
-                    metadata["exif"] = exif_data
-                    if "MakerNote" in exif_data:
-                        try:
-                            # Get the raw makernote data first
-                            makernote_raw = decode_apple_makernote(exif_data["MakerNote"])
-                            # Use the clean_json function to get a more readable representation
-                            metadata["apple_makernote"] = create_clean_json(makernote_raw)
-                        except Exception as makernote_e:
-                            metadata["apple_makernote_error"] = f"Error processing Apple MakerNote: {str(makernote_e)}"
-            except Exception as e:
-                # Fallback to simpler EXIF extraction
+            metadata = extract_heif_metadata(image_path)
+        else:
+            # For other image formats, use PIL/Pillow
+            img = Image.open(image_path)
+            
+            metadata = {
+                "filename": os.path.basename(image_path),
+                "format": img.format,
+                "mode": img.mode,
+                "size": img.size,
+                "width": img.width,
+                "height": img.height,
+            }
+            
+            # Add image-specific properties
+            if hasattr(img, 'info'):
+                for key, value in img.info.items():
+                    if isinstance(value, (str, int, float, bool, list, dict)):
+                        metadata[key] = value
+                    elif value is None:
+                        metadata[key] = None
+                    else:
+                        metadata[key] = f"Data of type {type(value).__name__}"
+            
+            # Extract EXIF data for formats that support it
+            if file_ext in ['.jpg', '.jpeg', '.tif', '.tiff']:
                 try:
-                    exif_data = extract_exif_with_pillow(img)
+                    exif_data = extract_exif_with_piexif(image_path)
                     if exif_data:
                         metadata["exif"] = exif_data
                         if "MakerNote" in exif_data:
                             try:
+                                # Get the raw makernote data first
                                 makernote_raw = decode_apple_makernote(exif_data["MakerNote"])
+                                # Use the clean_json function to get a more readable representation
                                 metadata["apple_makernote"] = create_clean_json(makernote_raw)
                             except Exception as makernote_e:
                                 metadata["apple_makernote_error"] = f"Error processing Apple MakerNote: {str(makernote_e)}"
-                except Exception as inner_e:
-                    metadata["exif_error"] = f"Error extracting EXIF: {str(inner_e)}"
+                except Exception as e:
+                    # Fallback to simpler EXIF extraction
+                    try:
+                        exif_data = extract_exif_with_pillow(img)
+                        if exif_data:
+                            metadata["exif"] = exif_data
+                            if "MakerNote" in exif_data:
+                                try:
+                                    makernote_raw = decode_apple_makernote(exif_data["MakerNote"])
+                                    metadata["apple_makernote"] = create_clean_json(makernote_raw)
+                                except Exception as makernote_e:
+                                    metadata["apple_makernote_error"] = f"Error processing Apple MakerNote: {str(makernote_e)}"
+                    except Exception as inner_e:
+                        metadata["exif_error"] = f"Error extracting EXIF: {str(inner_e)}"
+        
+        # If VLM describer is provided, generate image description
+        if vlm_describer is not None:
+            try:
+                description_result = vlm_describer(image_path, prompt=vlm_prompt)
+                if "error" in description_result:
+                    metadata["vlm_description_error"] = description_result["error"]
+                else:
+                    metadata["vlm_description"] = description_result
+            except Exception as vlm_e:
+                metadata["vlm_description_error"] = f"Error generating VLM description: {str(vlm_e)}"
         
         return metadata
     
     except Exception as e:
         return {"error": f"Error processing image: {str(e)}"}
 
-def process_directory(directory, output_file=None, recursive=False):
-    """Process all images in a directory."""
+def process_directory(directory, output_file=None, recursive=False, vlm_describer=None, vlm_prompt=None):
+    """
+    Process all images in a directory.
+    
+    Args:
+        directory: Path to the directory containing images
+        output_file: Optional path to save JSON output
+        recursive: Whether to process subdirectories recursively
+        vlm_describer: Optional VLM describer object for generating image descriptions
+        vlm_prompt: Optional custom prompt for the VLM
+        
+    Returns:
+        Dictionary containing metadata for all processed images
+    """
     results = {}
     
     # Define image extensions
@@ -311,7 +344,12 @@ def process_directory(directory, output_file=None, recursive=False):
     
     # Process each file
     for file_path in files:
-        results[file_path] = extract_metadata(file_path)
+        print(f"Processing {file_path}...")
+        results[file_path] = extract_metadata(
+            file_path, 
+            vlm_describer=vlm_describer, 
+            vlm_prompt=vlm_prompt
+        )
     
     # Output results
     if output_file:
@@ -329,11 +367,32 @@ def main():
     
     parser.add_argument("-o", "--output", help="Output JSON file (optional)")
     parser.add_argument("-r", "--recursive", action="store_true", help="Process directories recursively")
+    parser.add_argument("--vlm", choices=["none", "smolvlm"], default="none", 
+                        help="Use VLM to generate image descriptions (default: none)")
+    parser.add_argument("--vlm-prompt", help="Custom prompt for VLM description generation")
+    parser.add_argument("--cache-dir", help="Directory to cache VLM models")
     
     args = parser.parse_args()
     
+    # Initialize VLM if needed
+    vlm_describer = None
+    if args.vlm != "none":
+        try:
+            print(f"Initializing {args.vlm} vision-language model...")
+            vlm_describer = get_vlm_describer(
+                model_name=args.vlm,
+                cache_dir=args.cache_dir
+            )
+        except Exception as e:
+            print(f"Error initializing VLM: {str(e)}", file=sys.stderr)
+            sys.exit(1)
+    
     if args.file:
-        result = extract_metadata(args.file)
+        result = extract_metadata(
+            args.file, 
+            vlm_describer=vlm_describer, 
+            vlm_prompt=args.vlm_prompt
+        )
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
                 json.dump(result, f, indent=4, default=str)
@@ -341,7 +400,13 @@ def main():
             print(json.dumps(result, indent=4, default=str))
     
     elif args.directory:
-        results = process_directory(args.directory, args.output, args.recursive)
+        results = process_directory(
+            args.directory, 
+            args.output, 
+            args.recursive, 
+            vlm_describer=vlm_describer,
+            vlm_prompt=args.vlm_prompt
+        )
         if not args.output:
             print(json.dumps(results, indent=4, default=str))
 
