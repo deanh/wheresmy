@@ -10,7 +10,7 @@ from the web interface for reuse in other contexts.
 import logging
 from typing import Dict, List, Optional, Any
 
-from image_database import ImageDatabase
+from wheresmy.core.database import ImageDatabase
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,

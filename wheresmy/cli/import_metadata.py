@@ -10,7 +10,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from image_database import ImageDatabase
+from wheresmy.core.database import ImageDatabase
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,

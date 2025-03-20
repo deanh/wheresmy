@@ -27,9 +27,9 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-from image_database import ImageDatabase
-import search_utils
-import stats_utils
+from wheresmy.core.database import ImageDatabase
+from wheresmy.search import search as search_utils
+from wheresmy.search import stats as stats_utils
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -105,7 +105,7 @@ class IntegrationTest:
         logger.info(f"Extracting metadata from {self.sample_dir}")
         self.run_command([
             "python", 
-            "image_metadata_extractor.py", 
+            "wheresmy/core/metadata_extractor.py", 
             "-d", self.sample_dir,
             "-o", self.metadata_file,
             "--vlm", "smolvlm"
@@ -145,7 +145,7 @@ class IntegrationTest:
         # Import metadata into test database
         self.run_command([
             "python",
-            "import_metadata.py",
+            "wheresmy/cli/import_metadata.py",
             self.metadata_file,
             "--db", self.db_file
         ])
@@ -264,7 +264,7 @@ class IntegrationTest:
         logger.info("Test 5: CLI search interface")
         output = self.run_command([
             "python",
-            "search_cli.py",
+            "wheresmy/cli/search_cli.py",
             "--db", self.db_file,
             "search",
             "--limit", "3"

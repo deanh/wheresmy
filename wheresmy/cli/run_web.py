@@ -9,8 +9,8 @@ import argparse
 import logging
 from pathlib import Path
 
-from web_app import app
-from image_database import ImageDatabase
+from wheresmy.web_app import app
+from wheresmy.core.database import ImageDatabase
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,

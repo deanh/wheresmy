@@ -18,9 +18,9 @@ from pathlib import Path
 from flask import Flask, request, jsonify, send_file, render_template, abort, Response
 from flask_cors import CORS
 
-from image_database import ImageDatabase
-import search_utils
-import stats_utils
+from wheresmy.core.database import ImageDatabase
+from wheresmy.search import search as search_utils
+from wheresmy.search import stats as stats_utils
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,

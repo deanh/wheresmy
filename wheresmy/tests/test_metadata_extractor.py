@@ -10,9 +10,8 @@ from unittest.mock import MagicMock, patch
 from PIL import Image
 
 # Import the modules to test
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from vlm_describers import BaseVLMDescriber
+# Import the VLM describer
+from wheresmy.core.vlm_describers import BaseVLMDescriber
 
 
 class MockVLMDescriber(BaseVLMDescriber):

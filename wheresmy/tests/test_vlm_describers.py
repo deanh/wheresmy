@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import tempfile
 from PIL import Image
 
-from vlm_describers import (
+from wheresmy.core.vlm_describers import (
     BaseVLMDescriber,
     SmolVLMDescriber,
     get_vlm_describer

@@ -28,8 +28,8 @@ from datetime import datetime
 from PIL import Image, ExifTags
 import piexif
 import argparse
-from apple_makernote_decoder import decode_apple_makernote, create_clean_json
-from vlm_describers import get_vlm_describer
+from wheresmy.utils.apple_makernote import decode_apple_makernote, create_clean_json
+from wheresmy.core.vlm_describers import get_vlm_describer
 
 try:
     import pyheif
