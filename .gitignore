@@ -48,4 +48,9 @@ model_cache/
 .idea/
 
 # VS Code
-.vscode/
+.vscode/*.db
+*.json
+\!requirements.json
+\!METADATA_FORMAT.json
+.image_cache/
+__pycache__/

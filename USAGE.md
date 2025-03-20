@@ -6,13 +6,13 @@ This document provides a guide on how to use the Where's My Photo application.
 
 ```bash
 # 1. Extract metadata from images
-python image_metadata_extractor.py -d sample_directory -o metadata.json
+python -m wheresmy.core.metadata_extractor -d sample_directory -o metadata.json
 
 # 2. Import metadata to the database
-python import_metadata.py metadata.json --db photos.db
+./wheresmy_import metadata.json --db photos.db
 
 # 3. Start the web application
-python run_web.py --db photos.db
+./wheresmy_web --db photos.db
 
 # 4. Open in browser: http://localhost:5000
 ```
@@ -23,13 +23,13 @@ First, you need to extract metadata from your images:
 
 ```bash
 # Process a single image
-python image_metadata_extractor.py -f /path/to/your/image.jpg -o metadata.json
+python -m wheresmy.core.metadata_extractor -f /path/to/your/image.jpg -o metadata.json
 
 # Process a directory of images
-python image_metadata_extractor.py -d /path/to/your/photos -o metadata.json
+python -m wheresmy.core.metadata_extractor -d /path/to/your/photos -o metadata.json
 
 # Process recursively with AI-generated descriptions
-python image_metadata_extractor.py -d /path/to/your/photos -r --vlm smolvlm -o metadata.json
+python -m wheresmy.core.metadata_extractor -d /path/to/your/photos -r --vlm smolvlm -o metadata.json
 ```
 
 ## Step 2: Import Metadata to the Search Database
@@ -38,16 +38,28 @@ Next, import the metadata into the search database:
 
 ```bash
 # Import the metadata
-python import_metadata.py metadata.json --db photo_search.db
+./wheresmy_import metadata.json --db photo_search.db
 ```
 
-## Step 3: Start the Web Application
+## Step 3: Search from Command Line (Optional)
+
+You can search your photos from the command line:
+
+```bash
+# Basic search
+./wheresmy_search --db photo_search.db search --query "beach sunset"
+
+# Get database statistics
+./wheresmy_search --db photo_search.db stats
+```
+
+## Step 4: Start the Web Application
 
 Finally, start the web application to search your photos:
 
 ```bash
 # Start the web app
-python run_web.py --db photo_search.db
+./wheresmy_web --db photo_search.db
 ```
 
 Open your browser and navigate to: http://localhost:5000
@@ -58,13 +70,16 @@ Here's a complete example workflow using sample images:
 
 ```bash
 # Extract metadata from the sample directory
-python image_metadata_extractor.py -d sample_directory -o photos.json
+python -m wheresmy.core.metadata_extractor -d sample_directory -o photos.json
 
 # Import the metadata into the search database
-python import_metadata.py photos.json --db photos.db
+./wheresmy_import photos.json --db photos.db
+
+# Search for photos
+./wheresmy_search --db photos.db search --query "nature"
 
 # Start the web app
-python run_web.py --db photos.db
+./wheresmy_web --db photos.db
 ```
 
 ## Command Line Options
@@ -81,13 +96,28 @@ python run_web.py --db photos.db
 --cache-dir DIR         Directory to cache VLM models
 ```
 
-### Database Import
+### Database Import (wheresmy_import)
 
 ```
 --db FILE               Path to the database file (default: image_metadata.db)
 ```
 
-### Web Application
+### Search Tool (wheresmy_search)
+
+```
+# Global options
+--db FILE               Path to the database file (default: image_metadata.db)
+
+# Search subcommand options
+search --query TEXT     Search query string
+search --limit NUM      Maximum number of results to return
+search --camera TEXT    Filter by camera make/model
+
+# Stats subcommand
+stats                   Show database statistics
+```
+
+### Web Application (wheresmy_web)
 
 ```
 --host HOST             Host to bind to (default: 0.0.0.0)
@@ -101,3 +131,5 @@ python run_web.py --db photos.db
 1. **Processing Large Collections**: Break large collections into smaller batches
 2. **Using VLM Descriptions**: VLM processing takes time but improves search results
 3. **Database Management**: Use separate database files for different collections
+4. **Python Module Path**: When calling directly, use module notation (python -m wheresmy.core.metadata_extractor)
+5. **Development**: Install the package in development mode (pip install -e .) for easier testing

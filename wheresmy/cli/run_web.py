@@ -27,10 +27,9 @@ def main():
     
     args = parser.parse_args()
     
-    # Set database path
-    from web_app import db
-    global db
-    db = ImageDatabase(args.db)
+    # Set database path in web_app module
+    import wheresmy.web_app
+    wheresmy.web_app.db = ImageDatabase(args.db)
     
     # Make sure templates and static directories exist
     os.makedirs("templates", exist_ok=True)
@@ -39,7 +38,7 @@ def main():
     
     # Get database stats
     try:
-        stats = db.get_stats()
+        stats = wheresmy.web_app.db.get_stats()
         logger.info(f"Starting web app with {stats['total_images']} images in database")
     except Exception as e:
         logger.error(f"Error accessing database: {str(e)}")

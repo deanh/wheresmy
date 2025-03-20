@@ -11,11 +11,15 @@ import logging
 from pathlib import Path
 
 from wheresmy.core.database import ImageDatabase
+from wheresmy.utils.thumbnail import create_thumbnail
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Constants
+THUMBNAIL_DIR = os.path.join('wheresmy', 'static', 'images', 'thumbnails')
 
 def import_metadata(json_path, db_path):
     """Import metadata from a JSON file into the database."""
@@ -40,6 +44,11 @@ def import_metadata(json_path, db_path):
         logger.error(f"Error reading file: {str(e)}")
         return False
     
+    # Make sure thumbnail directory exists
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    thumbnail_path = os.path.join(project_root, THUMBNAIL_DIR)
+    os.makedirs(thumbnail_path, exist_ok=True)
+    
     # Check if it's a single image or a directory
     if isinstance(metadata, dict) and "filename" in metadata:
         # Single image
@@ -54,6 +63,14 @@ def import_metadata(json_path, db_path):
                 file_path = file_path + "." + ext
             metadata["file_path"] = file_path
         
+        # Create thumbnail if file_path exists
+        if "file_path" in metadata and metadata["file_path"]:
+            logger.info(f"Creating thumbnail for {metadata['filename']}")
+            thumbnail = create_thumbnail(metadata["file_path"], thumbnail_path)
+            if thumbnail:
+                # Add thumbnail path to metadata
+                metadata["thumbnail"] = os.path.join("static", "images", "thumbnails", thumbnail)
+        
         # Add to database
         db.add_image(metadata)
         count = 1
@@ -67,6 +84,15 @@ def import_metadata(json_path, db_path):
             # Add file_path if not present
             if "file_path" not in img_metadata:
                 img_metadata["file_path"] = path
+            
+            # Create thumbnail if file_path exists
+            if "file_path" in img_metadata and img_metadata["file_path"]:
+                filename = os.path.basename(img_metadata["file_path"])
+                logger.info(f"Creating thumbnail for {filename}")
+                thumbnail = create_thumbnail(img_metadata["file_path"], thumbnail_path)
+                if thumbnail:
+                    # Add thumbnail path to metadata
+                    img_metadata["thumbnail"] = os.path.join("static", "images", "thumbnails", thumbnail)
             
             # Add to database
             db.add_image(img_metadata)

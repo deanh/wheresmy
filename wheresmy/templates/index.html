@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Where's My Photo - Local Search</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Where's My Photo</h1>
+        <p>Local photo search powered by metadata and AI descriptions</p>
+    </header>
+
+    <main>
+        <div class="search-box">
+            <form class="search-form" id="searchForm">
+                <input type="text" id="searchQuery" class="search-input" placeholder="Search for photos...">
+                <button type="submit">Search</button>
+            </form>
+            
+            <div class="filters">
+                <select id="cameraFilter">
+                    <option value="">All Cameras</option>
+                </select>
+                
+                <input type="date" id="dateStart" placeholder="Start Date">
+                <input type="date" id="dateEnd" placeholder="End Date">
+                
+                <button id="showFilters">More Filters</button>
+                <button id="resetFilters">Reset</button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            <p>Loading results...</p>
+        </div>
+        
+        <div id="results" class="results"></div>
+        
+        <div id="pagination" style="margin-top: 1rem; text-align: center;"></div>
+        
+        <div class="stats-container">
+            <h2>Collection Statistics</h2>
+            <div id="stats"></div>
+        </div>
+    </main>
+    
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="image-details">
+                <div class="image-view">
+                    <h2 id="modalTitle"></h2>
+                    <img id="modalImage" src="" alt="">
+                </div>
+                <div class="image-metadata">
+                    <div class="tab-container">
+                        <div class="tab-buttons">
+                            <div class="tab-button active" data-tab="tab-info">Info</div>
+                            <div class="tab-button" data-tab="tab-exif">EXIF Data</div>
+                            <div class="tab-button" data-tab="tab-description">Description</div>
+                        </div>
+                        <div id="tab-info" class="tab-content active">
+                            <table>
+                                <tr><td>Filename:</td><td id="modalFilename"></td></tr>
+                                <tr><td>Date Taken:</td><td id="modalDate"></td></tr>
+                                <tr><td>Camera:</td><td id="modalCamera"></td></tr>
+                                <tr><td>Dimensions:</td><td id="modalDimensions"></td></tr>
+                                <tr><td>Format:</td><td id="modalFormat"></td></tr>
+                                <tr><td>Location:</td><td id="modalLocation"></td></tr>
+                            </table>
+                            <div id="modalMap" style="height: 200px; margin-top: 1rem;"></div>
+                        </div>
+                        <div id="tab-exif" class="tab-content">
+                            <pre id="modalExif"></pre>
+                        </div>
+                        <div id="tab-description" class="tab-content">
+                            <div id="modalDescription"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

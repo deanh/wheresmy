@@ -36,48 +36,12 @@ db = ImageDatabase()
 
 # Constants
 THUMBNAIL_SIZE = (300, 300)
-THUMBNAIL_CACHE_DIR = ".image_cache/thumbnails"
+# We no longer need this, as thumbnails are generated during import
+# THUMBNAIL_CACHE_DIR = ".image_cache/thumbnails"
 
 def ensure_dir_exists(directory: str) -> None:
     """Ensure a directory exists, creating it if necessary."""
     Path(directory).mkdir(parents=True, exist_ok=True)
-
-ensure_dir_exists(THUMBNAIL_CACHE_DIR)
-
-# Helpers
-def get_thumbnail_path(image_path: str) -> str:
-    """Get the path to the thumbnail for an image."""
-    # Use base64-encoded path as the thumbnail filename to avoid special characters
-    encoded_path = base64.b64encode(image_path.encode()).decode()
-    return os.path.join(THUMBNAIL_CACHE_DIR, f"{encoded_path}.jpg")
-
-def create_thumbnail(image_path: str, size=THUMBNAIL_SIZE) -> str:
-    """Create a thumbnail for an image if it doesn't exist."""
-    from PIL import Image, UnidentifiedImageError
-    
-    thumbnail_path = get_thumbnail_path(image_path)
-    
-    # Check if thumbnail already exists
-    if os.path.exists(thumbnail_path):
-        return thumbnail_path
-        
-    try:
-        # Create thumbnail directory if it doesn't exist
-        os.makedirs(os.path.dirname(thumbnail_path), exist_ok=True)
-        
-        # Open the image
-        img = Image.open(image_path)
-        
-        # Create thumbnail
-        img.thumbnail(size)
-        
-        # Save thumbnail
-        img.save(thumbnail_path, "JPEG")
-        
-        return thumbnail_path
-    except (IOError, UnidentifiedImageError) as e:
-        logger.error(f"Error creating thumbnail for {image_path}: {str(e)}")
-        return ""
 
 # Routes
 @app.route('/')
@@ -136,26 +100,16 @@ def search():
     # Process results
     processed_results = []
     for result in results:
-        # Create thumbnail if it doesn't exist
-        file_path = result.get('file_path')
+        # The thumbnail should be pre-generated during import
+        # If it exists in the metadata, use it directly
         
-        if file_path and os.path.exists(file_path):
-            # Try to create thumbnail
-            try:
-                thumbnail_path = create_thumbnail(file_path)
-                relative_thumb = os.path.relpath(thumbnail_path, app.static_folder) if thumbnail_path else None
-            except Exception as e:
-                logger.error(f"Error creating thumbnail: {str(e)}")
-                relative_thumb = None
-        else:
-            relative_thumb = None
-            
         # Add thumbnail URL to result
         processed_result = {
             'id': result['id'],
             'filename': result['filename'],
             'file_path': result['file_path'],
-            'thumbnail': f"/thumbnails/{os.path.basename(thumbnail_path)}" if relative_thumb else None,
+            # If thumbnail exists in the result, use it, otherwise use a placeholder
+            'thumbnail': result.get('thumbnail', '/static/placeholder.jpg'),
             'width': result['width'],
             'height': result['height'],
             'format': result['format'],
@@ -186,15 +140,11 @@ def get_stats():
     
     return jsonify(statistics)
 
-@app.route('/thumbnails/<filename>')
-def serve_thumbnail(filename):
-    """Serve a thumbnail file."""
-    # Find the thumbnail in the cache directory
-    for root, _, files in os.walk(THUMBNAIL_CACHE_DIR):
-        if filename in files:
-            return send_file(os.path.join(root, filename))
-    
-    abort(404)
+# We no longer need this route as thumbnails are served from static
+# @app.route('/thumbnails/<filename>')
+# def serve_thumbnail(filename):
+#     """Serve a thumbnail file."""
+#     abort(404)
 
 @app.route('/api/image/<int:image_id>')
 def get_image(image_id):
@@ -228,7 +178,7 @@ def create_placeholder_image():
     """Create a placeholder image for missing thumbnails."""
     from PIL import Image, ImageDraw
     
-    static_dir = 'static'
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
     placeholder_path = os.path.join(static_dir, 'placeholder.jpg')
     
     if os.path.exists(placeholder_path):
@@ -246,7 +196,7 @@ def create_placeholder_image():
     
     # Save image
     img.save(placeholder_path)
-    print(f"Created placeholder image: {placeholder_path}")
+    logger.info(f"Created placeholder image: {placeholder_path}")
 
 def main():
     """Main function to start the web application."""
@@ -263,10 +213,15 @@ def main():
     db = ImageDatabase(args.db)
     
     # Ensure static and templates directories
-    ensure_dir_exists('static')
-    ensure_dir_exists('templates')
-    ensure_dir_exists('static/js')
-    ensure_dir_exists('static/css')
+    # Now these directories are relative to the package
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+    
+    ensure_dir_exists(static_dir)
+    ensure_dir_exists(templates_dir)
+    ensure_dir_exists(os.path.join(static_dir, 'js'))
+    ensure_dir_exists(os.path.join(static_dir, 'css'))
+    ensure_dir_exists(os.path.join(static_dir, 'images', 'thumbnails'))
     
     # Create placeholder image
     create_placeholder_image()

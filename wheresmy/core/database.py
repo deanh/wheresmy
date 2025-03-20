@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS images (
     camera_model TEXT,
     description TEXT,
     description_model TEXT,
+    thumbnail TEXT,
     added_date TEXT NOT NULL,
     last_modified TEXT NOT NULL,
     metadata BLOB
@@ -201,6 +202,9 @@ class ImageDatabase:
             existing_id = cursor.fetchone()
             
             if existing_id:
+                # Get thumbnail path if available
+                thumbnail = metadata.get("thumbnail")
+                
                 # Update existing record
                 cursor.execute("""
                     UPDATE images SET
@@ -216,6 +220,7 @@ class ImageDatabase:
                         camera_model = ?,
                         description = ?,
                         description_model = ?,
+                        thumbnail = ?,
                         last_modified = ?,
                         metadata = ?
                     WHERE id = ?
@@ -225,26 +230,29 @@ class ImageDatabase:
                     gps_lat, gps_lon, capture_date,
                     camera_make, camera_model,
                     description, description_model,
-                    now, metadata_blob, existing_id[0]
+                    thumbnail, now, metadata_blob, existing_id[0]
                 ))
                 
                 conn.commit()
                 return existing_id[0]
             else:
+                # Get thumbnail path if available
+                thumbnail = metadata.get("thumbnail")
+                
                 # Insert new record
                 cursor.execute("""
                     INSERT INTO images (
                         file_path, filename, format, width, height,
                         exif, gps_lat, gps_lon, capture_date,
                         camera_make, camera_model, description,
-                        description_model, added_date, last_modified, metadata
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        description_model, thumbnail, added_date, last_modified, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     file_path, filename, img_format, width, height,
                     json.dumps(metadata.get("exif", {}), default=str),
                     gps_lat, gps_lon, capture_date,
                     camera_make, camera_model, description,
-                    description_model, now, now, metadata_blob
+                    description_model, thumbnail, now, now, metadata_blob
                 ))
                 
                 new_id = cursor.lastrowid
