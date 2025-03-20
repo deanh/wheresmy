@@ -19,6 +19,8 @@ from flask import Flask, request, jsonify, send_file, render_template, abort, Re
 from flask_cors import CORS
 
 from image_database import ImageDatabase
+import search_utils
+import stats_utils
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -117,8 +119,9 @@ def search():
     if min_height:
         min_height = int(min_height)
     
-    # Perform search
-    results = db.filter_search(
+    # Perform search using the utility module
+    results = search_utils.search_images(
+        db,
         text_query=query,
         camera_make=camera_make,
         camera_model=camera_model,
@@ -176,20 +179,12 @@ def search():
 @app.route('/api/stats')
 def get_stats():
     """Get database statistics."""
-    stats = db.get_stats()
-    
-    # Get camera stats
-    camera_stats = db.get_camera_stats()
-    
-    # Get date stats
     date_interval = request.args.get('date_interval', 'month')
-    date_stats = db.get_date_stats(by=date_interval)
     
-    return jsonify({
-        'stats': stats,
-        'cameras': camera_stats,
-        'dates': date_stats
-    })
+    # Get all statistics using the utility module
+    statistics = stats_utils.get_all_statistics(db, date_interval=date_interval)
+    
+    return jsonify(statistics)
 
 @app.route('/thumbnails/<filename>')
 def serve_thumbnail(filename):
@@ -204,13 +199,11 @@ def serve_thumbnail(filename):
 @app.route('/api/image/<int:image_id>')
 def get_image(image_id):
     """Get detailed information about an image."""
-    # Use the database's search function to get the image by ID
-    results = db.filter_search(f"id:{image_id}", limit=1)
+    # Use the utility module to get the image by ID
+    image_data = search_utils.get_image_by_id(db, image_id)
     
-    if not results:
+    if not image_data:
         abort(404)
-        
-    image_data = results[0]
     
     # Return all available metadata
     return jsonify(image_data)
@@ -218,13 +211,13 @@ def get_image(image_id):
 @app.route('/image/<int:image_id>')
 def serve_image(image_id):
     """Serve an image file."""
-    # Get image data from database
-    results = db.filter_search(f"id:{image_id}", limit=1)
+    # Get image data using the utility module
+    image_data = search_utils.get_image_by_id(db, image_id)
     
-    if not results:
+    if not image_data:
         abort(404)
         
-    image_path = results[0].get('file_path')
+    image_path = image_data.get('file_path')
     
     if not image_path or not os.path.exists(image_path):
         abort(404)
