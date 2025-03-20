@@ -33,7 +33,7 @@ class MockVLMDescriber(BaseVLMDescriber):
 
 
 # Import the main module functions after we've set up the mock
-from image_metadata_extractor import extract_metadata, process_directory
+from wheresmy.core.metadata_extractor import extract_metadata, process_directory
 
 
 class TestMetadataExtractor(unittest.TestCase):

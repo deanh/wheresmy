@@ -65,8 +65,8 @@ class TestBaseVLMDescriber(unittest.TestCase):
 class TestSmolVLMDescriber(unittest.TestCase):
     """Test the SmolVLMDescriber implementation."""
     
-    @patch('vlm_describers.AutoProcessor')
-    @patch('vlm_describers.AutoModelForVision2Seq')
+    @patch('wheresmy.core.vlm_describers.AutoProcessor')
+    @patch('wheresmy.core.vlm_describers.AutoModelForVision2Seq')
     def test_initialization_structure(self, mock_model_class, mock_processor_class):
         """Test that SmolVLMDescriber initializes with correct parameters."""
         # Setup mocks
