@@ -212,3 +212,38 @@ body {
     border-radius: 4px;
     line-height: 1.6;
 }
+
+/* VLM description styling */
+.vlm-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.vlm-text {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 6px;
+    border-left: 4px solid #4a90e2;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.vlm-metadata {
+    font-size: 0.9rem;
+    color: #666;
+    padding: 0.5rem;
+    border-top: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+}
+
+.no-data {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    padding: 2rem;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}

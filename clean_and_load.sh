@@ -11,8 +11,8 @@ rm -rf wheresmy/static/images/thumbnails/*
 echo "=== Creating directories ==="
 mkdir -p wheresmy/static/images/thumbnails
 
-echo "=== Extracting metadata from sample images ==="
-python -m wheresmy.core.metadata_extractor -d sample_directory -o sample_metadata.json
+echo "=== Extracting metadata from sample images with VLM descriptions ==="
+python -m wheresmy.core.metadata_extractor -d sample_directory -o sample_metadata.json --vlm smolvlm
 
 echo "=== Importing metadata and generating thumbnails ==="
 ./wheresmy_import sample_metadata.json --db sample_photos.db

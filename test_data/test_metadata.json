@@ -1,0 +1,15 @@
+{
+  "test_image.jpg": {
+    "filename": "test_image.jpg",
+    "file_path": "/non/existent/path/test_image.jpg",
+    "format": "JPEG",
+    "width": 800,
+    "height": 600,
+    "vlm_description": {
+      "description": "A beautiful sunset over mountains with a lake in the foreground. The sky is painted with vibrant oranges and purples, reflecting on the calm water surface. In the distance, silhouettes of pine trees frame the scene.",
+      "model": "SmolVLM",
+      "processing_time": 1.5,
+      "prompt": "Create a detailed description of this image to help users find it with text search."
+    }
+  }
+}

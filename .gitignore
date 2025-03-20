@@ -52,5 +52,8 @@ model_cache/
 *.json
 \!requirements.json
 \!METADATA_FORMAT.json
+# Allow test data files
+\!test_data/test_metadata.json
+\!test_data/test_semantic_search.py
 .image_cache/
 __pycache__/

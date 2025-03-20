@@ -37,6 +37,12 @@ const modalLocation = document.getElementById('modalLocation');
 const modalExif = document.getElementById('modalExif');
 const modalDescription = document.getElementById('modalDescription');
 
+// VLM description elements
+const vlmText = document.getElementById('vlmText');
+const vlmModel = document.getElementById('vlmModel');
+const vlmTime = document.getElementById('vlmTime');
+const vlmNotAvailable = document.getElementById('vlmNotAvailable');
+
 // Modal tabs
 const tabButtons = document.querySelectorAll('.tab-button');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -242,11 +248,41 @@ async function viewImage(imageId) {
             modalExif.textContent = 'No EXIF data available';
         }
         
-        // Handle description
-        if (imageData.description) {
-            modalDescription.textContent = imageData.description;
+        // Handle VLM descriptions
+        if (imageData.vlm_description) {
+            // Show VLM description elements, hide "not available" message
+            vlmNotAvailable.style.display = 'none';
+            vlmText.style.display = 'block';
+            
+            // Set VLM description text
+            vlmText.textContent = imageData.vlm_description.description || '';
+            
+            // Set model name if available
+            if (imageData.vlm_description.model) {
+                vlmModel.textContent = imageData.vlm_description.model;
+            } else {
+                vlmModel.textContent = 'Unknown';
+            }
+            
+            // Set processing time if available
+            if (imageData.vlm_description.processing_time) {
+                vlmTime.textContent = `${imageData.vlm_description.processing_time.toFixed(2)}s`;
+            } else {
+                vlmTime.textContent = 'N/A';
+            }
+        } else if (imageData.description) {
+            // Fallback to the basic description field
+            vlmNotAvailable.style.display = 'none';
+            vlmText.style.display = 'block';
+            vlmText.textContent = imageData.description;
+            vlmModel.textContent = 'N/A';
+            vlmTime.textContent = 'N/A';
         } else {
-            modalDescription.textContent = 'No AI description available';
+            // No description available
+            vlmText.style.display = 'none';
+            vlmNotAvailable.style.display = 'block';
+            vlmModel.textContent = 'None';
+            vlmTime.textContent = 'N/A';
         }
         
         // Show modal

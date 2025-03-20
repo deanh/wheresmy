@@ -77,7 +77,16 @@
                             <pre id="modalExif"></pre>
                         </div>
                         <div id="tab-description" class="tab-content">
-                            <div id="modalDescription"></div>
+                            <div id="modalDescription" class="vlm-container">
+                                <div id="vlmText" class="vlm-text"></div>
+                                <div class="vlm-metadata">
+                                    <p>Model: <span id="vlmModel">None</span></p>
+                                    <p>Processing time: <span id="vlmTime">N/A</span></p>
+                                </div>
+                                <div id="vlmNotAvailable" class="no-data" style="display: none;">
+                                    <p>No AI description available</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
