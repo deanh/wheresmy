@@ -13,39 +13,43 @@ A local image search application that uses extracted metadata and AI-generated d
 
 ## System Components
 
-### 1. Metadata Extractor (`image_metadata_extractor.py`)
-- Extracts EXIF data, camera information, GPS coordinates
-- Decodes Apple MakerNote data from iOS devices
-- Supports common image formats (JPEG, PNG, HEIC, etc.)
+The project is organized as a Python package with modular components:
 
-### 2. VLM Integration (`vlm_describers.py`)
-- Uses SmolVLM to describe image content
-- Provides semantic descriptions searchable by natural language
-- Enables content-based searching
+### 1. Core Components (`wheresmy/core/`)
+- **Database** (`database.py`): SQLite database with full-text search
+- **Metadata Extractor** (`metadata_extractor.py`): Extracts EXIF data, camera info, GPS
+- **VLM Integration** (`vlm_describers.py`): Generates image descriptions with SmolVLM
 
-### 3. Database Storage (`image_database.py`)
-- SQLite database with full-text search capabilities
-- Efficient storage of metadata with indexing for fast queries
-- Supports filtering by date, camera, dimensions, etc.
+### 2. Search Tools (`wheresmy/search/`)
+- **Search Utilities** (`search.py`): Functions for searching images
+- **Statistics Utilities** (`stats.py`): Functions for database statistics
 
-### 4. Web Interface (`web_app.py`)
-- Simple, responsive UI for searching and viewing photos
-- Filter by text, camera, date, etc.
-- Image preview with detailed metadata display
+### 3. User Interfaces
+- **Web Interface** (`wheresmy/web_app.py`): Flask-based responsive UI
+- **CLI Tools** (`wheresmy/cli/`): Command-line interfaces
+
+### 4. Utilities (`wheresmy/utils/`)
+- **Apple MakerNote Decoder** (`apple_makernote.py`): iOS metadata decoder
 
 ## Quick Start
 
 ```bash
-# 1. Extract metadata from images
-python image_metadata_extractor.py -d sample_directory -o metadata.json
+# 1. Install the package (optional)
+# pip install -e .  # Install in development mode
 
-# 2. Import metadata to the database
-python import_metadata.py metadata.json --db photos.db
+# 2. Extract metadata from images
+python wheresmy/core/metadata_extractor.py -d sample_directory -o metadata.json
 
-# 3. Start the web application
-python run_web.py --db photos.db
+# 3. Import metadata to the database
+./wheresmy_import metadata.json --db photos.db
 
-# 4. Open in browser: http://localhost:5000
+# 4. Search images from the command line
+./wheresmy_search --db photos.db search --query "beach sunset"
+
+# 5. Start the web application
+./wheresmy_web --db photos.db
+
+# 6. Open in browser: http://localhost:5000
 ```
 
 See [USAGE.md](USAGE.md) for detailed instructions and command options.
@@ -64,9 +68,18 @@ See [USAGE.md](USAGE.md) for detailed instructions and command options.
    cd wheresmy
    ```
 
-2. Install dependencies:
+2. Install the package and dependencies:
    ```bash
+   # Option 1: Install dependencies only
    pip install -r requirements.txt
+   
+   # Option 2: Install the package in development mode (recommended)
+   pip install -e .
+   ```
+
+3. Make the launcher scripts executable:
+   ```bash
+   chmod +x wheresmy_*
    ```
 
 ## Features in Detail
