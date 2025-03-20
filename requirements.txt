@@ -10,6 +10,7 @@ transformers>=4.30.0
 accelerate>=1.0.0
 safetensors>=0.3.0
 huggingface-hub>=0.17.0
+sentence-transformers>=2.2.2
 
 # Search Application
 Flask>=2.3.0

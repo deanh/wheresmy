@@ -12,6 +12,7 @@ import json
 import logging
 import sqlite3
 import time
+import numpy as np
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple
@@ -22,7 +23,7 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 # Constants
-DB_VERSION = 1
+DB_VERSION = 2
 CREATE_IMAGES_TABLE = """
 CREATE TABLE IF NOT EXISTS images (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +45,24 @@ CREATE TABLE IF NOT EXISTS images (
     last_modified TEXT NOT NULL,
     metadata BLOB
 );
+"""
+
+CREATE_EMBEDDINGS_TABLE = """
+CREATE TABLE IF NOT EXISTS text_embeddings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_id INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    model_name TEXT NOT NULL,
+    embedding_size INTEGER NOT NULL,
+    embedding BLOB NOT NULL,
+    added_date TEXT NOT NULL,
+    FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE
+);
+"""
+
+# Index on the image_id for quick lookups of embeddings by image
+CREATE_EMBEDDING_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_embedding_image_id ON text_embeddings(image_id);
 """
 
 CREATE_SEARCH_INDEX = """
@@ -124,6 +143,8 @@ class ImageDatabase:
                 cursor.execute(CREATE_TRIGGER_INSERT)
                 cursor.execute(CREATE_TRIGGER_UPDATE)
                 cursor.execute(CREATE_TRIGGER_DELETE)
+                cursor.execute(CREATE_EMBEDDINGS_TABLE)
+                cursor.execute(CREATE_EMBEDDING_INDEX)
                 
                 # Create indexes for common search fields
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_capture_date ON images(capture_date);")
@@ -135,10 +156,19 @@ class ImageDatabase:
             else:
                 current_version = result[0]
                 if current_version < DB_VERSION:
-                    # Perform schema migrations here as needed
+                    # Perform schema migrations
                     logger.info(f"Upgrading database from version {current_version} to {DB_VERSION}")
+                    
+                    # Version 1 to 2: Add text embeddings support
+                    if current_version == 1 and DB_VERSION >= 2:
+                        logger.info("Upgrading database schema: Adding text embeddings tables")
+                        cursor.execute(CREATE_EMBEDDINGS_TABLE)
+                        cursor.execute(CREATE_EMBEDDING_INDEX)
+                    
+                    # Update version
                     cursor.execute("UPDATE db_version SET version = ?", (DB_VERSION,))
                     conn.commit()
+                    logger.info(f"Database upgraded to version {DB_VERSION}")
                     
         finally:
             conn.close()
@@ -337,7 +367,13 @@ class ImageDatabase:
                 # Parse JSON fields
                 try:
                     if image_data["metadata"]:
-                        image_data["metadata"] = json.loads(image_data["metadata"])
+                        metadata_obj = json.loads(image_data["metadata"])
+                        image_data["metadata"] = metadata_obj
+                        
+                        # Extract VLM description from metadata if available
+                        if "vlm_description" in metadata_obj:
+                            image_data["vlm_description"] = metadata_obj["vlm_description"]
+                            
                     if image_data["exif"]:
                         image_data["exif"] = json.loads(image_data["exif"])
                 except json.JSONDecodeError:
@@ -431,7 +467,13 @@ class ImageDatabase:
                 # Parse JSON fields
                 try:
                     if image_data["metadata"]:
-                        image_data["metadata"] = json.loads(image_data["metadata"])
+                        metadata_obj = json.loads(image_data["metadata"])
+                        image_data["metadata"] = metadata_obj
+                        
+                        # Extract VLM description from metadata if available
+                        if "vlm_description" in metadata_obj:
+                            image_data["vlm_description"] = metadata_obj["vlm_description"]
+                            
                     if image_data["exif"]:
                         image_data["exif"] = json.loads(image_data["exif"])
                 except json.JSONDecodeError:
@@ -558,11 +600,354 @@ class ImageDatabase:
         finally:
             conn.close()
             
+    def add_embedding(self, image_id: int, embedding_data: Dict[str, Any]) -> int:
+        """
+        Add or update a text embedding for an image.
+        
+        Args:
+            image_id: ID of the image
+            embedding_data: Dictionary containing embedding data, with keys:
+                - embedding: numpy array with embedding
+                - text: text that was embedded
+                - model: name of the model used for embedding
+                - embedding_size: dimensionality of the embedding
+                
+        Returns:
+            ID of the inserted embedding
+        """
+        # Check if image_id exists
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM images WHERE id = ?", (image_id,))
+            if not cursor.fetchone():
+                raise ValueError(f"Image ID {image_id} not found in database")
+                
+            # Extract embedding data
+            text = embedding_data.get("text", "")
+            model_name = embedding_data.get("model", "unknown")
+            embedding_size = embedding_data.get("embedding_size", 0)
+            embedding_array = embedding_data.get("embedding")
+            
+            if embedding_array is None:
+                raise ValueError("Embedding data must contain an 'embedding' field")
+                
+            # Convert numpy array to bytes for storage - make sure it's float32
+            if hasattr(embedding_array, "tobytes"):
+                # Convert to float32 to ensure consistent storage
+                embedding_array = embedding_array.astype(np.float32)
+                embedding_blob = embedding_array.tobytes()
+            else:
+                # If it's not already a numpy array, convert it
+                embedding_array = np.array(embedding_array, dtype=np.float32)
+                embedding_blob = embedding_array.tobytes()
+                
+            # Update embedding size to match actual array size
+            embedding_size = len(embedding_array)
+                
+            now = datetime.now(timezone.utc).isoformat()
+            
+            # Check if embedding for this image and model already exists
+            cursor.execute("""
+                SELECT id FROM text_embeddings 
+                WHERE image_id = ? AND model_name = ?
+            """, (image_id, model_name))
+            existing_id = cursor.fetchone()
+            
+            if existing_id:
+                # Update existing embedding
+                cursor.execute("""
+                    UPDATE text_embeddings SET
+                        text = ?,
+                        embedding_size = ?,
+                        embedding = ?,
+                        added_date = ?
+                    WHERE id = ?
+                """, (text, embedding_size, embedding_blob, now, existing_id[0]))
+                
+                conn.commit()
+                return existing_id[0]
+            else:
+                # Insert new embedding
+                cursor.execute("""
+                    INSERT INTO text_embeddings (
+                        image_id, text, model_name, embedding_size, embedding, added_date
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (image_id, text, model_name, embedding_size, embedding_blob, now))
+                
+                new_id = cursor.lastrowid
+                conn.commit()
+                return new_id
+                
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Error adding embedding to database: {str(e)}")
+            raise
+        finally:
+            conn.close()
+            
+    def batch_add_embeddings(self, 
+                           embeddings_dict: Dict[int, Dict[str, Any]], 
+                           progress_callback=None) -> Dict[int, int]:
+        """
+        Add multiple embeddings to the database.
+        
+        Args:
+            embeddings_dict: Dictionary with image IDs as keys and embedding data as values
+            progress_callback: Optional callback function to report progress
+            
+        Returns:
+            Dictionary mapping image IDs to embedding IDs
+        """
+        results = {}
+        total = len(embeddings_dict)
+        
+        for i, (image_id, embedding_data) in enumerate(embeddings_dict.items()):
+            try:
+                embedding_id = self.add_embedding(image_id, embedding_data)
+                results[image_id] = embedding_id
+            except Exception as e:
+                logger.error(f"Error adding embedding for image {image_id}: {str(e)}")
+                results[image_id] = None
+                
+            # Call progress callback if provided
+            if progress_callback and callable(progress_callback):
+                progress_callback(i+1, total)
+                
+        return results
+    
+    def get_embedding(self, image_id: int, model_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Get the embedding for an image.
+        
+        Args:
+            image_id: ID of the image
+            model_name: Optional name of the embedding model
+            
+        Returns:
+            Dictionary with embedding data or None if not found
+        """
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM text_embeddings WHERE image_id = ?"
+            params = [image_id]
+            
+            if model_name:
+                query += " AND model_name = ?"
+                params.append(model_name)
+                
+            query += " ORDER BY added_date DESC LIMIT 1"
+            
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+            
+            if not row:
+                return None
+                
+            # Convert blob to numpy array
+            embedding_blob = row[5]  # embedding column
+            embedding_size = row[4]  # embedding_size column
+            embedding_array = np.frombuffer(embedding_blob, dtype=np.float32)
+            
+            # Verify the embedding size matches the expected size
+            if len(embedding_array) != embedding_size:
+                logger.warning(f"Retrieved embedding size mismatch: got {len(embedding_array)}, expected {embedding_size}")
+                # Attempt to reshape or truncate to the correct size
+                if len(embedding_array) > embedding_size:
+                    logger.warning(f"Truncating embedding from {len(embedding_array)} to {embedding_size}")
+                    embedding_array = embedding_array[:embedding_size]
+            
+            return {
+                "id": row[0],
+                "image_id": row[1],
+                "text": row[2],
+                "model": row[3],
+                "embedding_size": embedding_size,
+                "embedding": embedding_array,
+                "added_date": row[6]
+            }
+            
+        except Exception as e:
+            logger.error(f"Error retrieving embedding: {str(e)}")
+            return None
+        finally:
+            conn.close()
+            
+    def semantic_search(self, 
+                      query_embedding: np.ndarray, 
+                      limit: int = 20, 
+                      model_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Search for images using vector similarity.
+        
+        Args:
+            query_embedding: Query embedding vector
+            limit: Maximum number of results to return
+            model_name: Optional model name to filter embeddings
+            
+        Returns:
+            List of matching image data with similarity scores
+        """
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get all embeddings, load into memory (more efficient for small-to-medium databases)
+            if model_name:
+                cursor.execute("""
+                    SELECT e.*, i.* FROM text_embeddings e
+                    JOIN images i ON e.image_id = i.id
+                    WHERE e.model_name = ?
+                """, (model_name,))
+            else:
+                cursor.execute("""
+                    SELECT e.*, i.* FROM text_embeddings e
+                    JOIN images i ON e.image_id = i.id
+                """)
+                
+            rows = cursor.fetchall()
+            
+            # Convert embeddings and calculate similarity
+            import numpy as np
+            from numpy.linalg import norm
+            
+            results = []
+            for row in rows:
+                # Convert embedding blob to numpy array
+                embedding_blob = row["embedding"]
+                embedding_size = row["embedding_size"]
+                embedding = np.frombuffer(embedding_blob, dtype=np.float32)
+                
+                # Ensure the embedding has the correct shape for comparison
+                if len(embedding) != len(query_embedding):
+                    logger.warning(f"Embedding size mismatch in search: {len(embedding)} vs {len(query_embedding)}")
+                    if len(embedding) > len(query_embedding):
+                        embedding = embedding[:len(query_embedding)]
+                    else:
+                        # If the stored embedding is smaller, we need to skip it
+                        continue
+                
+                # Calculate norms
+                embedding_norm = norm(embedding)
+                query_norm = norm(query_embedding)
+                norm_product = embedding_norm * query_norm
+                
+                # Check for zero norms (which shouldn't happen with valid embeddings)
+                if norm_product == 0:
+                    if embedding_norm == 0:
+                        logger.warning(f"Zero norm encountered for stored embedding (image_id: {row['id']})")
+                    if query_norm == 0:
+                        logger.warning("Zero norm encountered for query embedding")
+                    # Avoid division by zero, but mark as very dissimilar
+                    similarity = 0.0
+                else:
+                    # Calculate cosine similarity
+                    similarity = np.dot(embedding, query_embedding) / norm_product
+                
+                # Create image data dictionary
+                image_data = dict(row)
+                
+                # Parse JSON fields
+                try:
+                    if image_data["metadata"]:
+                        metadata_obj = json.loads(image_data["metadata"])
+                        image_data["metadata"] = metadata_obj
+                        
+                        # Extract VLM description from metadata if available
+                        if "vlm_description" in metadata_obj:
+                            image_data["vlm_description"] = metadata_obj["vlm_description"]
+                            
+                    if image_data["exif"]:
+                        image_data["exif"] = json.loads(image_data["exif"])
+                except json.JSONDecodeError:
+                    logger.warning(f"Could not parse JSON for image ID {image_data['id']}")
+                
+                # Add similarity score
+                image_data["similarity"] = float(similarity)
+                
+                results.append(image_data)
+                
+            # Sort by similarity (highest first) and limit results
+            results.sort(key=lambda x: x["similarity"], reverse=True)
+            return results[:limit]
+            
+        except Exception as e:
+            logger.error(f"Error in semantic search: {str(e)}")
+            return []
+        finally:
+            conn.close()
+            
+    def hybrid_search(self, 
+                    text_query: str,
+                    query_embedding: np.ndarray,
+                    limit: int = 20,
+                    model_name: Optional[str] = None,
+                    text_weight: float = 0.5) -> List[Dict[str, Any]]:
+        """
+        Perform a hybrid search combining full-text and semantic search.
+        
+        Args:
+            text_query: Text query for full-text search
+            query_embedding: Query embedding vector for semantic search
+            limit: Maximum number of results to return
+            model_name: Optional model name to filter embeddings
+            text_weight: Weight for text search results (0.0 to 1.0)
+                        with semantic search weight = 1.0 - text_weight
+            
+        Returns:
+            List of matching image data with combined scores
+        """
+        # Validate weights
+        if text_weight < 0.0 or text_weight > 1.0:
+            raise ValueError("text_weight must be between 0.0 and 1.0")
+            
+        embedding_weight = 1.0 - text_weight
+        
+        # Get results from both search methods
+        text_results = self.search(text_query, limit=limit*2)  # Get more results for better merging
+        semantic_results = self.semantic_search(query_embedding, limit=limit*2, model_name=model_name)
+        
+        # Create dictionaries for faster lookup
+        text_dict = {item["id"]: item for item in text_results}
+        semantic_dict = {item["id"]: item for item in semantic_results}
+        
+        # Combine results
+        combined_dict = {}
+        
+        # Process text search results
+        for image_id, item in text_dict.items():
+            item["text_rank"] = text_results.index(item) + 1
+            item["combined_score"] = text_weight * (1.0 / item["text_rank"])
+            combined_dict[image_id] = item
+            
+        # Process semantic search results
+        for image_id, item in semantic_dict.items():
+            similarity = item["similarity"]
+            
+            if image_id in combined_dict:
+                # Item exists in both result sets
+                combined_dict[image_id]["similarity"] = similarity
+                combined_dict[image_id]["combined_score"] += embedding_weight * similarity
+            else:
+                # Item only in semantic results
+                item["combined_score"] = embedding_weight * similarity
+                combined_dict[image_id] = item
+                
+        # Convert to list and sort by combined score
+        results = list(combined_dict.values())
+        results.sort(key=lambda x: x.get("combined_score", 0), reverse=True)
+        
+        return results[:limit]
+    
     def clear(self) -> None:
         """Delete all data from the database."""
         conn = sqlite3.connect(self.db_path)
         try:
             cursor = conn.cursor()
+            cursor.execute("DELETE FROM text_embeddings")
             cursor.execute("DELETE FROM images")
             conn.commit()
             logger.info("Database cleared")
