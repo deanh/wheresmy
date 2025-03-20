@@ -105,7 +105,7 @@ class IntegrationTest:
         logger.info(f"Extracting metadata from {self.sample_dir}")
         self.run_command([
             "python", 
-            "wheresmy/core/metadata_extractor.py", 
+            "-m", "wheresmy.core.metadata_extractor", 
             "-d", self.sample_dir,
             "-o", self.metadata_file,
             "--vlm", "smolvlm"
@@ -145,7 +145,7 @@ class IntegrationTest:
         # Import metadata into test database
         self.run_command([
             "python",
-            "wheresmy/cli/import_metadata.py",
+            "-m", "wheresmy.cli.import_metadata",
             self.metadata_file,
             "--db", self.db_file
         ])
@@ -264,7 +264,7 @@ class IntegrationTest:
         logger.info("Test 5: CLI search interface")
         output = self.run_command([
             "python",
-            "wheresmy/cli/search_cli.py",
+            "-m", "wheresmy.cli.search_cli",
             "--db", self.db_file,
             "search",
             "--limit", "3"
