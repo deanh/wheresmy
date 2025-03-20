@@ -15,9 +15,10 @@ Dependencies:
 - Pillow (PIL)
 - piexif (for more detailed EXIF data)
 - pyheif (for HEIC/HEIF support)
+- transformers, torch (for VLM image description generation)
 
 Install with:
-pip install Pillow piexif pyheif
+pip install Pillow piexif pyheif transformers torch
 """
 
 import os
@@ -27,7 +28,8 @@ from datetime import datetime
 from PIL import Image, ExifTags
 import piexif
 import argparse
-from apple_makernote_decoder import decode_apple_makernote
+from apple_makernote_decoder import decode_apple_makernote, create_clean_json
+from vlm_describers import get_vlm_describer
 
 try:
     import pyheif
@@ -189,6 +191,24 @@ def extract_heif_metadata(image_path):
                     gps_info = get_gps_info(exif_dict)
                     if gps_info:
                         metadata['GPS'] = gps_info
+                        
+                    # Process Apple MakerNote if present
+                    maker_note_found = False
+                    for ifd in ['0th', 'Exif']:
+                        if ifd in exif_dict and exif_dict[ifd]:
+                            for tag, value in exif_dict[ifd].items():
+                                tag_name = piexif.TAGS[ifd].get(tag, str(tag))
+                                if tag_name == "MakerNote" and isinstance(value, bytes):
+                                    # Convert bytes to string representation for the decoder
+                                    try:
+                                        makernote_raw = decode_apple_makernote(value)
+                                        metadata["apple_makernote"] = create_clean_json(makernote_raw)
+                                        maker_note_found = True
+                                        break
+                                    except Exception as makernote_e:
+                                        metadata["apple_makernote_error"] = f"Error processing Apple MakerNote: {str(makernote_e)}"
+                        if maker_note_found:
+                            break
                 
                 except Exception as e:
                     metadata["EXIF_error"] = str(e)
@@ -243,13 +263,25 @@ def extract_metadata(image_path):
                 if exif_data:
                     metadata["exif"] = exif_data
                     if "MakerNote" in exif_data:
-                        metadata["maker_note"] = decode_apple_makernote(exif_data["MakerNote"])
+                        try:
+                            # Get the raw makernote data first
+                            makernote_raw = decode_apple_makernote(exif_data["MakerNote"])
+                            # Use the clean_json function to get a more readable representation
+                            metadata["apple_makernote"] = create_clean_json(makernote_raw)
+                        except Exception as makernote_e:
+                            metadata["apple_makernote_error"] = f"Error processing Apple MakerNote: {str(makernote_e)}"
             except Exception as e:
                 # Fallback to simpler EXIF extraction
                 try:
                     exif_data = extract_exif_with_pillow(img)
                     if exif_data:
                         metadata["exif"] = exif_data
+                        if "MakerNote" in exif_data:
+                            try:
+                                makernote_raw = decode_apple_makernote(exif_data["MakerNote"])
+                                metadata["apple_makernote"] = create_clean_json(makernote_raw)
+                            except Exception as makernote_e:
+                                metadata["apple_makernote_error"] = f"Error processing Apple MakerNote: {str(makernote_e)}"
                 except Exception as inner_e:
                     metadata["exif_error"] = f"Error extracting EXIF: {str(inner_e)}"
         

@@ -7,17 +7,28 @@ import json
 
 def decode_apple_makernote(makernote_str):
     """
-    Decode Apple iOS MakerNote data from a string representation.
+    Decode Apple iOS MakerNote data from a string or bytes representation.
     
     Args:
-        makernote_str (str): String representation of the MakerNote data
+        makernote_str: String or bytes representation of the MakerNote data
     
     Returns:
         dict: Decoded information from the MakerNote
     """
+    # Convert bytes to string if needed
+    if isinstance(makernote_str, bytes):
+        try:
+            makernote_str = makernote_str.decode('latin1')
+        except:
+            makernote_str = str(makernote_str)
+    
     # Clean up the string representation to get the raw bytes
     if makernote_str.startswith('"') and makernote_str.endswith('"'):
         makernote_str = makernote_str[1:-1]
+    elif makernote_str.startswith("b'") and makernote_str.endswith("'"):
+        makernote_str = makernote_str[2:-1]  # Handle Python bytes repr format
+    elif makernote_str.startswith('b"') and makernote_str.endswith('"'):
+        makernote_str = makernote_str[2:-1]  # Handle Python bytes repr format
     
     # Convert the escaped string to a proper bytes object
     cleaned_str = makernote_str.encode('latin1')
