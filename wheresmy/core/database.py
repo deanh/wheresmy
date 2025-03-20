@@ -176,11 +176,16 @@ class ImageDatabase:
         camera_make = None
         camera_model = None
         capture_date = None
+        date_source = metadata.get("date_source", "exif")
         if "exif" in metadata:
             exif = metadata["exif"]
             camera_make = exif.get("Make")
             camera_model = exif.get("Model")
             capture_date = exif.get("DateTimeOriginal", exif.get("DateTime"))
+            
+            # Log if date was extracted from filename
+            if capture_date and date_source == "filename":
+                logger.info(f"Using date from filename for {filename}: {capture_date}")
             
         # Extract VLM description
         description = None

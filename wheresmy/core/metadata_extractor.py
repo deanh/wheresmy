@@ -24,6 +24,7 @@ pip install Pillow piexif pyheif transformers torch
 import os
 import sys
 import json
+import re
 from datetime import datetime
 from PIL import Image, ExifTags
 import piexif
@@ -48,6 +49,53 @@ def format_exif_date(date_str):
         return dt.isoformat()
     except ValueError:
         return date_str
+
+def extract_date_from_filename(filename):
+    """
+    Extract date from filename using various common patterns.
+    
+    Args:
+        filename: The filename to extract date from
+        
+    Returns:
+        ISO format date string if found, None otherwise
+    """
+    # Common patterns:
+    # 1. YYYY-MM-DD_HH.MM.SS (or with spaces, dashes, underscores)
+    patterns = [
+        # YYYY-MM-DD HH.MM.SS or YYYY-MM-DD_HH.MM.SS
+        r'(\d{4})[_\-]?(\d{2})[_\-]?(\d{2})[_\s](\d{2})[\.:]?(\d{2})[\.:]?(\d{2})',
+        # YYYY-MM-DD
+        r'(\d{4})[_\-](\d{2})[_\-](\d{2})',
+        # YYYYMMDD_HHMMSS
+        r'(\d{4})(\d{2})(\d{2})[_\s](\d{2})(\d{2})(\d{2})',
+        # IMG_YYYYMMDD_HHMMSS
+        r'IMG[_\-](\d{4})(\d{2})(\d{2})[_\-](\d{2})(\d{2})(\d{2})',
+        # Filenames like 2018-04-15 12.11.57.jpg
+        r'(\d{4})\-(\d{2})\-(\d{2})\s(\d{2})\.(\d{2})\.(\d{2})'
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, filename)
+        if match:
+            groups = match.groups()
+            if len(groups) == 3:  # Just date, no time
+                year, month, day = groups
+                try:
+                    dt = datetime(int(year), int(month), int(day))
+                    return dt.isoformat()
+                except ValueError:
+                    continue
+            elif len(groups) == 6:  # Date and time
+                year, month, day, hour, minute, second = groups
+                try:
+                    dt = datetime(int(year), int(month), int(day), 
+                                 int(hour), int(minute), int(second))
+                    return dt.isoformat()
+                except ValueError:
+                    continue
+    
+    return None
 
 def get_gps_info(exif_data):
     """Extract and format GPS information from EXIF data."""
@@ -305,6 +353,20 @@ def extract_metadata(image_path, vlm_describer=None, vlm_prompt=None):
                     metadata["vlm_description"] = description_result
             except Exception as vlm_e:
                 metadata["vlm_description_error"] = f"Error generating VLM description: {str(vlm_e)}"
+        
+        # Check for capture date - if not in EXIF, try to extract from filename
+        if "exif" in metadata and ("DateTimeOriginal" in metadata["exif"] or "DateTime" in metadata["exif"]):
+            # Already has date info from EXIF
+            pass
+        else:
+            # Try to extract date from filename
+            filename = os.path.basename(image_path)
+            date_from_filename = extract_date_from_filename(filename)
+            if date_from_filename:
+                if "exif" not in metadata:
+                    metadata["exif"] = {}
+                metadata["exif"]["DateTimeOriginal"] = date_from_filename
+                metadata["date_source"] = "filename"
         
         return metadata
     
