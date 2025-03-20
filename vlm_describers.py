@@ -84,24 +84,45 @@ class SmolVLMDescriber(BaseVLMDescriber):
     
     def initialize_model(self):
         """Initialize the SmolVLM model and processor."""
-        print(f"Initializing SmolVLM model on {self.device}...")
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Initializing SmolVLM model on {self.device}...")
         start_time = time.time()
         
-        # Initialize processor and model
-        self.processor = AutoProcessor.from_pretrained(
-            self.MODEL_NAME,
-            cache_dir=self.cache_dir
-        )
-        
-        self.model = AutoModelForVision2Seq.from_pretrained(
-            self.MODEL_NAME,
-            torch_dtype=torch.bfloat16,
-            _attn_implementation="flash_attention_2" if self.device == "cuda" else "eager",
-            cache_dir=self.cache_dir
-        ).to(self.device)
-        
-        elapsed = time.time() - start_time
-        print(f"SmolVLM model initialized in {elapsed:.2f} seconds")
+        try:
+            # Initialize processor
+            logger.info("Loading processor...")
+            processor_start = time.time()
+            self.processor = AutoProcessor.from_pretrained(
+                self.MODEL_NAME,
+                cache_dir=self.cache_dir
+            )
+            logger.info(f"Processor loaded in {time.time() - processor_start:.2f} seconds")
+            
+            # Initialize model
+            logger.info("Loading model...")
+            model_start = time.time()
+            self.model = AutoModelForVision2Seq.from_pretrained(
+                self.MODEL_NAME,
+                torch_dtype=torch.bfloat16,
+                _attn_implementation="flash_attention_2" if self.device == "cuda" else "eager",
+                cache_dir=self.cache_dir
+            )
+            logger.info(f"Model loaded in {time.time() - model_start:.2f} seconds")
+            
+            # Move model to device
+            logger.info(f"Moving model to {self.device}...")
+            device_start = time.time()
+            self.model = self.model.to(self.device)
+            logger.info(f"Model moved to {self.device} in {time.time() - device_start:.2f} seconds")
+            
+            elapsed = time.time() - start_time
+            logger.info(f"SmolVLM model fully initialized in {elapsed:.2f} seconds")
+            
+        except Exception as e:
+            logger.error(f"Error initializing SmolVLM model: {str(e)}")
+            raise
     
     def generate_description(self, image_path: str, prompt: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -114,15 +135,24 @@ class SmolVLMDescriber(BaseVLMDescriber):
         Returns:
             Dictionary containing the description and metadata
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Generating description for image: {image_path}")
+        
         # Verify image exists
         if not os.path.exists(image_path):
+            logger.error(f"Image file not found: {image_path}")
             return {"error": f"Image file not found: {image_path}"}
         
         start_time = time.time()
         
         try:
             # Load the image
+            logger.info("Loading image...")
+            image_start = time.time()
             image = Image.open(image_path).convert("RGB")
+            logger.info(f"Image loaded in {time.time() - image_start:.2f} seconds")
             
             # Prepare the prompt
             text_prompt = prompt or self.DEFAULT_PROMPT
@@ -137,18 +167,28 @@ class SmolVLMDescriber(BaseVLMDescriber):
             ]
             
             # Apply chat template and prepare model inputs
+            logger.info("Preparing inputs...")
+            prep_start = time.time()
             prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True)
             inputs = self.processor(text=prompt, images=[image], return_tensors="pt")
             inputs = inputs.to(self.device)
+            logger.info(f"Inputs prepared in {time.time() - prep_start:.2f} seconds")
             
             # Generate description
+            logger.info("Generating text...")
+            gen_start = time.time()
             with torch.no_grad():
                 generated_ids = self.model.generate(**inputs, max_new_tokens=500)
+            logger.info(f"Text generation took {time.time() - gen_start:.2f} seconds")
             
+            # Decode the generated text
+            logger.info("Decoding text...")
+            decode_start = time.time()
             generated_text = self.processor.batch_decode(
                 generated_ids,
                 skip_special_tokens=True,
             )[0]
+            logger.info(f"Text decoded in {time.time() - decode_start:.2f} seconds")
             
             # Extract just the assistant's response
             if "Assistant:" in generated_text:
@@ -157,6 +197,7 @@ class SmolVLMDescriber(BaseVLMDescriber):
                 description = generated_text.strip()
             
             elapsed = time.time() - start_time
+            logger.info(f"Description generated in {elapsed:.2f} seconds")
             
             return {
                 "description": description,
@@ -166,6 +207,7 @@ class SmolVLMDescriber(BaseVLMDescriber):
             }
             
         except Exception as e:
+            logger.error(f"Error generating description: {str(e)}")
             return {
                 "error": f"Error generating description: {str(e)}",
                 "model": self.MODEL_NAME

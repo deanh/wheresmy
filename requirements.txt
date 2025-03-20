@@ -11,6 +11,13 @@ accelerate>=1.0.0
 safetensors>=0.3.0
 huggingface-hub>=0.17.0
 
+# Search Application
+Flask>=2.3.0
+Flask-CORS>=4.0.0
+SQLAlchemy>=2.0.0
+diskcache>=5.0.0
+tqdm>=4.65.0
+
 # Test dependencies
 pytest>=7.0.0
 pytest-cov>=4.0.0
