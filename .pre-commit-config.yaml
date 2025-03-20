@@ -1,0 +1,22 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: unittest
+        name: run unit tests
+        entry: python -m unittest discover -s tests
+        language: system
+        pass_filenames: false
+        always_run: true
+
+    -   id: black
+        name: black code formatter
+        entry: black
+        language: system
+        types: [python]
+        
+    -   id: flake8
+        name: flake8 code linter
+        entry: flake8
+        language: system
+        types: [python]
+        exclude: ^(venv|\.venv)/
