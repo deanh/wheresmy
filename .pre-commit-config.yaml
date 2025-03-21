@@ -3,7 +3,7 @@ repos:
     hooks:
     -   id: unittest
         name: run unit tests
-        entry: python -m unittest discover -s tests
+        entry: python -m pytest
         language: system
         pass_filenames: false
         always_run: true
@@ -18,5 +18,6 @@ repos:
         name: flake8 code linter
         entry: flake8
         language: system
+        files: ^wheresmy/
         types: [python]
         exclude: ^(venv|\.venv)/

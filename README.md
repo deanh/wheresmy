@@ -7,6 +7,7 @@ A local image search application that uses extracted metadata and AI-generated d
 - **Metadata Extraction**: Extracts comprehensive metadata from various image formats (JPEG, PNG, HEIC, etc.)
 - **AI-Powered Descriptions**: Uses Vision-Language Models to generate searchable descriptions of photos
 - **Full-Text Search**: Find images by searching their content, not just filenames
+- **Semantic Search**: Find semantically similar photos using embeddings
 - **Database Storage**: Efficiently organizes and retrieves photo metadata
 - **Responsive Web Interface**: Easy-to-use search interface with filters and previews
 - **Low Resource Usage**: Designed to run on machines with 4-8GB of RAM
