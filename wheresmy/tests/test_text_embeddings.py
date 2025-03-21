@@ -19,10 +19,18 @@ class MockEmbeddingModel:
         """Return mock embeddings for testing."""
         if isinstance(texts, str):
             # Return a consistent mock embedding for a single text
-            return np.ones(384) * hash(texts) % 10 / 10
+            # Use hash of the text to generate a unique pattern
+            seed = abs(hash(texts)) % 100
+            return np.ones(384) * (seed / 100.0) + np.arange(384) * (seed / 10000.0)
         else:
             # Return mock embeddings for a list of texts
-            return np.array([np.ones(384) * hash(text) % 10 / 10 for text in texts])
+            # Use the hash of each text to create different vectors
+            embeddings = []
+            for text in texts:
+                seed = abs(hash(text)) % 100
+                embedding = np.ones(384) * (seed / 100.0) + np.arange(384) * (seed / 10000.0)
+                embeddings.append(embedding)
+            return np.array(embeddings)
 
 
 class TestTextEmbeddingGenerator(unittest.TestCase):

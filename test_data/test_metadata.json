@@ -1,14 +1,64 @@
 {
-  "test_image.jpg": {
-    "filename": "test_image.jpg",
-    "file_path": "/non/existent/path/test_image.jpg",
+  "test_image1.jpg": {
+    "filename": "test_image1.jpg",
+    "file_path": "/non/existent/path/test_image1.jpg",
     "format": "JPEG",
-    "width": 800,
-    "height": 600,
+    "width": 1920,
+    "height": 1080,
+    "exif": {
+      "Make": "Test Camera",
+      "Model": "TestModel X100",
+      "DateTimeOriginal": "2022:05:15 12:30:45"
+    },
+    "camera_make": "Test Camera",
+    "camera_model": "TestModel X100",
+    "capture_date": "2022:05:15 12:30:45",
     "vlm_description": {
       "description": "A beautiful sunset over mountains with a lake in the foreground. The sky is painted with vibrant oranges and purples, reflecting on the calm water surface. In the distance, silhouettes of pine trees frame the scene.",
       "model": "SmolVLM",
       "processing_time": 1.5,
+      "prompt": "Create a detailed description of this image to help users find it with text search."
+    }
+  },
+  "test_image2.jpg": {
+    "filename": "test_image2.jpg",
+    "file_path": "/non/existent/path/test_image2.jpg",
+    "format": "JPEG",
+    "width": 3840,
+    "height": 2160,
+    "exif": {
+      "Make": "Apple",
+      "Model": "iPhone 13 Pro", 
+      "DateTimeOriginal": "2022:08:10 16:45:22"
+    },
+    "camera_make": "Apple",
+    "camera_model": "iPhone 13 Pro",
+    "capture_date": "2022:08:10 16:45:22",
+    "vlm_description": {
+      "description": "A beach scene with palm trees swaying in the breeze. The ocean is a clear turquoise blue, and the sand is pristine white. There are colorful beach umbrellas dotting the shoreline and a few people swimming in the distance.",
+      "model": "SmolVLM",
+      "processing_time": 1.8,
+      "prompt": "Create a detailed description of this image to help users find it with text search."
+    }
+  },
+  "test_image3.jpg": {
+    "filename": "test_image3.jpg",
+    "file_path": "/non/existent/path/test_image3.jpg",
+    "format": "JPEG",
+    "width": 2560, 
+    "height": 1440,
+    "exif": {
+      "Make": "Canon",
+      "Model": "EOS R5",
+      "DateTimeOriginal": "2021:12:25 08:15:30"
+    },
+    "camera_make": "Canon",
+    "camera_model": "EOS R5",
+    "capture_date": "2021:12:25 08:15:30",
+    "vlm_description": {
+      "description": "A snowy winter scene in a forest. Tall pine trees are covered in fresh snow, and the forest floor is blanketed in white. Sunlight filters through the branches creating a magical atmosphere with shadows and light dancing on the snow.",
+      "model": "SmolVLM",
+      "processing_time": 1.6,
       "prompt": "Create a detailed description of this image to help users find it with text search."
     }
   }
