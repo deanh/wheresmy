@@ -1,4 +1,4 @@
-# Where's My Photo
+# Where's My Photo?
 
 A local image search application that uses extracted metadata and AI-generated descriptions to help you find photos in your personal collection.
 
