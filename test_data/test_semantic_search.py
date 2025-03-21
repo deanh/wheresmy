@@ -5,14 +5,14 @@ Test script for semantic search functionality.
 
 import os
 import sys
-import numpy as np
-from pathlib import Path
-
-# Add the parent directory to sys.path to find the wheresmy module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from wheresmy.core.database import ImageDatabase
 from wheresmy.core.text_embeddings import TextEmbeddingGenerator
+
+# import numpy as np
+# from pathlib import Path
+
+# Add the parent directory to sys.path to find the wheresmy module
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Initialize the database
 db = ImageDatabase("test_data/test_embeddings.db")
@@ -32,7 +32,7 @@ print(f"Found {len(results)} semantic search results")
 
 # Print the results with similarity scores
 for i, result in enumerate(results):
-    print(f"Result {i+1}:")
+    print(f"Result {i + 1}:")
     print(f"  Image: {result['filename']}")
     print(f"  Similarity: {result['similarity']:.4f}")
     print(f"  Description: {result.get('description', 'N/A')}")
@@ -44,7 +44,7 @@ print(f"Found {len(hybrid_results)} hybrid search results")
 
 # Print the hybrid results
 for i, result in enumerate(hybrid_results):
-    print(f"Hybrid Result {i+1}:")
+    print(f"Hybrid Result {i + 1}:")
     print(f"  Image: {result['filename']}")
     print(f"  Combined Score: {result.get('combined_score', 0):.4f}")
     print(f"  Similarity: {result.get('similarity', 0):.4f}")
